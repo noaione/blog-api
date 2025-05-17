@@ -4,12 +4,18 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "plausible-sync",
+	"name": "blog-api",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-05-17",
 	"observability": {
 		"enabled": true
-	}
+	},
+	"kv_namespaces": [
+		{
+			"binding": "BLOG_KV",
+			"id": "a8fc66f9c7f648748d837f6845666f0c"
+		}
+	]
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

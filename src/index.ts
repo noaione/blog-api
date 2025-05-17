@@ -1,49 +1,92 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your Worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { Router, IRequest } from 'itty-router';
+import { getFirstOne, isEnvEmpty, JSONResponse, TextResponse, walkJson } from './utils';
+import { CFArgs } from './types';
+import { fetchNowPlaying } from './spotify';
 
-import handleProxy from './proxy';
-import handleRedirect from './redirect';
-import apiRouter from './router';
+// now let's create a router (note the lack of "new")
+const router = Router<IRequest, CFArgs>();
 
-// Export a default object containing event handlers
-export default {
-	// The fetch handler is invoked when this worker receives a HTTP(S) request
-	// and should return a Response (optionally wrapped in a Promise)
-	async fetch(request, env, ctx): Promise<Response> {
-		// You'll find it helpful to parse the request.url string into a URL object. Learn more at https://developer.mozilla.org/en-US/docs/Web/API/URL
-		const url = new URL(request.url);
+router.get('/', () => TextResponse('</> made by @noaione </>'));
 
-		// You can get pretty far with simple logic like if/switch-statements
-		switch (url.pathname) {
-			case '/redirect':
-				return handleRedirect.fetch(request, env, ctx);
+// Spotify related
+router.get('/spotify/now', async (_, env) => {
+	const { SPOTIFY_KEY, SPOTIFY_SECRET, SPOTIFY_REFRESH_TOKEN } = env;
 
-			case '/proxy':
-				return handleProxy.fetch(request, env, ctx);
+	if (isEnvEmpty(SPOTIFY_KEY) || isEnvEmpty(SPOTIFY_SECRET) || isEnvEmpty(SPOTIFY_REFRESH_TOKEN)) {
+		return JSONResponse({ playing: false, error: 'Spotify credentials not set' }, 503);
+	}
+
+	return fetchNowPlaying(env)
+});
+
+// Plausible hits
+router.get('/stats/hits', async (req, env) => {
+	// Check query params
+	const slug = getFirstOne(req.query.slug);
+	if (isEnvEmpty(slug)) {
+		return JSONResponse({ error: 'Missing slug' }, 400);
+	}
+
+	const siteId = getFirstOne(req.query.siteId);
+
+	if (isEnvEmpty(env.PLAUSIBLE_HOST) || isEnvEmpty(env.PLAUSIBLE_API_KEY)) {
+		return JSONResponse({ error: 'Plausible credentials not set' }, 503);
+	}
+
+	const preferSiteId = isEnvEmpty(siteId) ? env.PLAUSIBLE_SITE_ID : siteId;
+	if (isEnvEmpty(preferSiteId)) {
+		return JSONResponse({ error: 'Missing siteId' }, 400);
+	}
+
+	if (!URL.canParse(env.PLAUSIBLE_HOST!)) {
+		return JSONResponse({ error: 'Invalid Plausible host' }, 503);
+	}
+
+	const apiUrl = new URL(env.PLAUSIBLE_HOST!);
+	apiUrl.pathname = '/api/v2/query';
+
+	// Decode slug
+	let decodedSlug = decodeURIComponent(slug!);
+    if (!decodedSlug.startsWith('/')) {
+		decodedSlug = '/' + decodedSlug;
+    }
+
+	const requestParams = {
+		"site_id": preferSiteId,
+		"metrics": ["visits"],
+		"date_range": "all",
+		"filters": [
+			["is", "event:page", [decodedSlug]],
+		],
+	};
+
+	try {
+		const respData = await fetch(apiUrl.toString(), {
+			method: "POST",
+			headers: {
+				"Authorization": `Bearer ${env.PLAUSIBLE_API_KEY}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(requestParams),
+		});
+
+		if (!respData.ok) {
+			return JSONResponse({ error: 'Error fetching data from Plausible' }, 500);
 		}
 
-		if (url.pathname.startsWith('/api/')) {
-			// You can also use more robust routing
-			return apiRouter.handle(request);
-		}
+		const decodedData = await respData.json<Record<string, unknown>>();
 
-		return new Response(
-			`Try making requests to:
-      <ul>
-      <li><code><a href="/redirect?redirectUrl=https://example.com/">/redirect?redirectUrl=https://example.com/</a></code>,</li>
-      <li><code><a href="/proxy?modify&proxyUrl=https://example.com/">/proxy?modify&proxyUrl=https://example.com/</a></code>, or</li>
-      <li><code><a href="/api/todos">/api/todos</a></code></li>`,
-			{ headers: { 'Content-Type': 'text/html' } }
-		);
-	},
-} satisfies ExportedHandler<Env>;
+		const walkedData = walkJson(decodedData, "results.0.metrics.0");
+		if (typeof walkedData === 'number') {
+			return JSONResponse({ hits: walkedData });
+		}
+		return JSONResponse({ error: 'Invalid data from Plausible' }, 500);
+	} catch (error) {
+		return JSONResponse({ error: 'Error fetching data from Plausible' }, 500);
+	}
+})
+
+// 404 for everything else
+router.all('*', () => TextResponse('Not found', 404));
+
+export default router;
