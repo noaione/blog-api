@@ -15,7 +15,10 @@
 			"binding": "BLOG_KV",
 			"id": "a8fc66f9c7f648748d837f6845666f0c"
 		}
-	]
+	],
+	"vars": {
+		"SITE_HOST": "blog.n4o.xyz"
+	}
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

@@ -169,19 +169,19 @@ async function fetchAccessToken(env: Environment): Promise<string | null | false
 	}
 }
 
-export async function fetchNowPlaying(env: Environment): Promise<Response | null> {
+export async function fetchNowPlaying(env: Environment, corsHeaders: Record<string, string>): Promise<Response | null> {
 	const accessToken = await fetchAccessToken(env);
 	if (accessToken === false) {
 		return JSONResponse({
 			playing: false,
 			error: "Error fetching access token",
-		}, 503);
+		}, 503, corsHeaders);
 	}
 	if (!accessToken) {
 		return JSONResponse({
 			playing: false,
 			error: "Not ready",
-		}, 503);
+		}, 503, corsHeaders);
 	}
 
 	try {
@@ -196,13 +196,13 @@ export async function fetchNowPlaying(env: Environment): Promise<Response | null
 			return JSONResponse({
 				playing: false,
 				error: "Error fetching now playing",
-			}, 503);
+			}, 503, corsHeaders);
 		}
 
 		if (response.status === 204) {
 			return JSONResponse({
 				playing: false,
-			});
+			}, 200, corsHeaders);
 		}
 
 		const jsonData = await response.json<SimpleSpotifyNowPlayingResponse>();
@@ -211,7 +211,7 @@ export async function fetchNowPlaying(env: Environment): Promise<Response | null
 			return JSONResponse({
 				playing: false,
 				error: "Not a track",
-			}, 200);
+			}, 200, corsHeaders);
 		}
 
 		const data = {
@@ -237,7 +237,7 @@ export async function fetchNowPlaying(env: Environment): Promise<Response | null
 		return JSONResponse({
 			playing: is_playing,
 			data,
-		}, 200);
+		}, 200, corsHeaders);
 	} catch (error) {
 		// Check error code
 		if (error instanceof Error) {
@@ -248,6 +248,6 @@ export async function fetchNowPlaying(env: Environment): Promise<Response | null
 		return JSONResponse({
 			playing: false,
 			error: "Error fetching now playing",
-		}, 500);
+		}, 500, corsHeaders);
 	}
 }

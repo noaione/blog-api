@@ -6,6 +6,7 @@ export type Environment = {
 	SPOTIFY_SECRET?: string;
 	SPOTIFY_REFRESH_TOKEN?: string;
 	BLOG_KV: KVNamespace;
+	SITE_HOST: string;
 };
 
 export type CFArgs = [Environment, ExecutionContext];

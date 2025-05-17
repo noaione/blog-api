@@ -37,7 +37,7 @@ Deployed on Cloudflare Workers.
 	 { binding = "BLOG_KV", id = "<KV_ID>" }
    ]
    ```
-5. Deploy the project: `npx wrangler publish`
+5. Deploy the project: `npm run deploy`
 
 ## License
 
