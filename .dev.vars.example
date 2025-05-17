@@ -1,0 +1,7 @@
+PLAUSIBLE_HOST=https://plausible.host.example
+PLAUSIBLE_API_KEY=my-plausible-api-key
+PLAUSIBLE_SITE_ID=my.site.id
+
+SPOTIFY_KEY=
+SPOTIFY_SECRET=
+SPOTIFY_REFRESH_TOKEN=
