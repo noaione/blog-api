@@ -24,17 +24,24 @@ type TokenResponse = {
 type SimpleSpotifyResponse = {
 	playing: boolean;
 	data?: {
-		item: {
+		title: string
+		album: {
 			name: string;
-			album: {
-				name: string;
-				images: Array<{ url: string }>;
-			};
-			artists: Array<{ name: string }>;
-			uri: string;
+			date: string;
+			cover?: string;
+			url: string;
 		};
+		artist: {
+			id: string;
+			name: string;
+			url?: string;
+		}[];
+		url: string;
+		progress?: number;
+		duration: number;
 	};
 	error?: string;
+	statusCode?: number;
 }
 
 interface SimpleSpotifyNowPlayingResponse {
@@ -169,19 +176,21 @@ async function fetchAccessToken(env: Environment): Promise<string | null | false
 	}
 }
 
-export async function fetchNowPlaying(env: Environment, corsHeaders: Record<string, string>): Promise<Response | null> {
+async function getLatestNowPlaying(env: Environment): Promise<SimpleSpotifyResponse> {
 	const accessToken = await fetchAccessToken(env);
 	if (accessToken === false) {
-		return JSONResponse({
+		return {
 			playing: false,
 			error: "Error fetching access token",
-		}, 503, corsHeaders);
+		}
 	}
+
 	if (!accessToken) {
-		return JSONResponse({
+		return {
 			playing: false,
 			error: "Not ready",
-		}, 503, corsHeaders);
+			statusCode: 503,
+		};
 	}
 
 	try {
@@ -193,25 +202,28 @@ export async function fetchNowPlaying(env: Environment, corsHeaders: Record<stri
 
 		if (!response.ok) {
 			console.error("Spotify.now(): Error fetching now playing:", response.statusText);
-			return JSONResponse({
+			return {
 				playing: false,
 				error: "Error fetching now playing",
-			}, 503, corsHeaders);
+				statusCode: 503,
+			};
 		}
 
 		if (response.status === 204) {
-			return JSONResponse({
+			return {
 				playing: false,
-			}, 200, corsHeaders);
+				statusCode: 200,
+			}
 		}
 
 		const jsonData = await response.json<SimpleSpotifyNowPlayingResponse>();
 		const { is_playing, item, currently_playing_type } = jsonData;
 		if (currently_playing_type !== "track") {
-			return JSONResponse({
+			return {
 				playing: false,
 				error: "Not a track",
-			}, 200, corsHeaders);
+				statusCode: 200,
+			}
 		}
 
 		const data = {
@@ -234,10 +246,11 @@ export async function fetchNowPlaying(env: Environment, corsHeaders: Record<stri
 			duration: item.duration_ms,
 		};
 
-		return JSONResponse({
+		return {
 			playing: is_playing,
 			data,
-		}, 200, corsHeaders);
+			statusCode: 200,
+		}
 	} catch (error) {
 		// Check error code
 		if (error instanceof Error) {
@@ -245,9 +258,50 @@ export async function fetchNowPlaying(env: Environment, corsHeaders: Record<stri
 		} else {
 			console.error("Spotify.now(): Error fetching now playing:", error);
 		}
-		return JSONResponse({
+		return {
 			playing: false,
 			error: "Error fetching now playing",
-		}, 500, corsHeaders);
+			statusCode: 500,
+		};
 	}
+}
+
+export async function fetchNowPlaying(env: Environment, corsHeaders: Record<string, string>): Promise<Response | null> {
+	const results = await getLatestNowPlaying(env);
+	return JSONResponse(results, results.statusCode || 200, corsHeaders);
+}
+
+export async function fetchSpotifyShields(env: Environment, corsHeaders: Record<string, string>): Promise<Response | null> {
+	const results = await getLatestNowPlaying(env);
+
+	if (results.error) {
+		console.error("Spotify.shields(): Error fetching now playing:", results.error);
+		return JSONResponse(
+			{
+				schemaVersion: 1,
+				label: "Spotify",
+				namedLogo: "spotify",
+				color: "#a62828",
+				message: "An error occurred when fetching tracks!",
+				labelColor: "#181818",
+				isError: true,
+			},
+			200,
+			corsHeaders
+		);
+	}
+
+	const shieldsData = {
+		schemaVersion: 1,
+		label: "listening to",
+		namedLogo: "spotify",
+		color: "#1DB954",
+		message: "nothing",
+		labelColor: "#181818",
+	};
+	if (results.playing && results.data?.title) {
+		shieldsData.message = results.data.title;
+	}
+
+	return JSONResponse(shieldsData, 200, corsHeaders);
 }

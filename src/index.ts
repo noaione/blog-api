@@ -1,7 +1,7 @@
 import { Router, IRequest } from 'itty-router';
 import { getFirstOne, isEnvEmpty, JSONResponse, TextResponse, walkJson } from './utils';
 import { CFArgs } from './types';
-import { fetchNowPlaying } from './spotify';
+import { fetchNowPlaying, fetchSpotifyShields } from './spotify';
 
 // now let's create a router (note the lack of "new")
 const router = Router<IRequest, CFArgs>();
@@ -48,7 +48,7 @@ router.get('/spotify/now', async (_, env) => {
 		return JSONResponse({ playing: false, error: 'Spotify credentials not set' }, 503, corsHeaders);
 	}
 
-	return fetchNowPlaying(env, corsHeaders)
+	return fetchNowPlaying(env, corsHeaders);
 });
 
 // Plausible hits
@@ -116,6 +116,29 @@ router.get('/stats/hits', async (req, env) => {
 	} catch (error) {
 		return JSONResponse({ error: 'Error fetching data from Plausible' }, 500, corsHeaders);
 	}
+});
+
+// Shields related
+router.get('/shields/spotify', async (_, env) => {
+	const { SPOTIFY_KEY, SPOTIFY_SECRET, SPOTIFY_REFRESH_TOKEN } = env;
+
+	if (isEnvEmpty(SPOTIFY_KEY) || isEnvEmpty(SPOTIFY_SECRET) || isEnvEmpty(SPOTIFY_REFRESH_TOKEN)) {
+		return JSONResponse(
+			{
+				schemaVersion: 1,
+				label: "Spotify",
+				namedLogo: "spotify",
+				color: "#a62828",
+				message: "Spotify credentials not set",
+				labelColor: "#181818",
+				isError: true,
+			},
+			503,
+			corsHeaders
+		);
+	}
+
+	return fetchSpotifyShields(env, corsHeaders);
 })
 
 // 404 for everything else
