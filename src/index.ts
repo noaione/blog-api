@@ -2,6 +2,7 @@ import { Router, IRequest } from 'itty-router';
 import { getFirstOne, isEnvEmpty, JSONResponse, TextResponse, walkJson } from './utils';
 import { CFArgs } from './types';
 import { fetchNowPlaying, fetchSpotifyShields } from './spotify';
+import { getCurrentSplashImage } from './shuffler';
 
 // now let's create a router (note the lack of "new")
 const router = Router<IRequest, CFArgs>();
@@ -139,7 +140,25 @@ router.get('/shields/spotify', async (_, env) => {
 	}
 
 	return fetchSpotifyShields(env, corsHeaders);
-})
+});
+
+router.get('/image-splash', (req) => {
+	const selectedIndex = getFirstOne(req.query.num);
+	// Parse as number
+	const imageIndex = selectedIndex ? parseInt(selectedIndex, 10) : null;
+
+	const imgUrl = getCurrentSplashImage(imageIndex);
+	return new Response(null, {
+		status: 302,
+		headers: {
+			Location: imgUrl,
+			'Cache-Control': 'no-cache, no-store, must-revalidate',
+			'Pragma': 'no-cache',
+			'Expires': '0',
+			...corsHeaders,
+		}
+	});
+});
 
 // 404 for everything else
 router.all('*', () => TextResponse('Not found', 404, corsHeaders));
