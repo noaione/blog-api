@@ -11,6 +11,6 @@
 	"devDependencies": {
 		"itty-router": "5.0.18",
 		"typescript": "5.5.2",
-		"wrangler": "4.15.2"
+		"wrangler": "4.59.1"
 	}
 }
