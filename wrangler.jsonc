@@ -6,7 +6,9 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "blog-api",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-05-17",
+	"workers_dev": true,
+	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_date": "2026-11-06",
 	"observability": {
 		"enabled": true
 	},
@@ -18,6 +20,9 @@
 	],
 	"vars": {
 		"SITE_HOST": "blog.n4o.xyz"
+	},
+	"browser": {
+		"binding": "BLOG_BROWSER"
 	}
 	/**
 	 * Smart Placement

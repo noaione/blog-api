@@ -11,9 +11,9 @@ Deployed on Cloudflare Workers.
 
 ## Setup
 1. Clone the repository
-2. Install dependencies: `npm install`
+2. Install dependencies: `corepack pnpm install`
 3. Create a new `.dev.vars` for your local environment, see secrets part below.
-4. Start the local server: `npm run dev`
+4. Start the local server: `corepack pnpm dev`
 
 ### Secrets
 - `PLAUSIBLE_HOST`: The host of your Plausible instance.
@@ -24,20 +24,20 @@ Deployed on Cloudflare Workers.
 - `SPOTIFY_REFRESH_TOKEN`: The refresh token for your Spotify account, you can use the dev console from Spotify to get this.
 
 ## Deploying
-1. Install wrangler
-2. Login to your Cloudflare account: `wrangler login`
+1. Install dependencies: `corepack pnpm install`
+2. Login to your Cloudflare account: `corepack pnpm exec wrangler login`
 3. Add each of your `.dev.vars` to your Cloudflare account:
    ```bash
-   npx wrangler secret put PLAUSIBLE_HOST <PLAUSIBLE_HOST>
+   corepack pnpm exec wrangler secret put PLAUSIBLE_HOST <PLAUSIBLE_HOST>
    ...
-4. Create a new Cloudflare KV namespace: `npx wrangler kv namespace create BLOG_KV`
+4. Create a new Cloudflare KV namespace: `corepack pnpm exec wrangler kv namespace create BLOG_KV`
 5. Bind the KV namespace to your project in `wrangler.toml`:
    ```toml
    kv_namespaces = [
 	 { binding = "BLOG_KV", id = "<KV_ID>" }
    ]
    ```
-5. Deploy the project: `npm run deploy`
+5. Deploy the project: `corepack pnpm deploy`
 
 ## License
 
