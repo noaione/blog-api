@@ -3,6 +3,7 @@ import { getFirstOne, isEnvEmpty, JSONResponse, TextResponse, walkJson } from '.
 import { CFArgs } from './types';
 import { fetchNowPlaying, fetchSpotifyShields } from './spotify';
 import { getCurrentSplashImage } from './shuffler';
+import { parseUserCardData, renderUserCard, UserCardInputError } from './userCard';
 
 // now let's create a router (note the lack of "new")
 const router = Router<IRequest, CFArgs>();
@@ -12,6 +13,7 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
     'Access-Control-Max-Age': '86400',
 };
+const MAX_USER_CARD_REQUEST_BYTES = 1_000_000;
 
 // Handle CORS preflight requests
 router.options('*', (request, env) => {
@@ -154,6 +156,52 @@ router.get('/image-splash', (req) => {
             ...corsHeaders,
         },
     });
+});
+
+// User card image generation
+router.post('/user-card', async (req, env) => {
+	const contentType = req.headers.get('content-type') ?? '';
+	if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
+		return JSONResponse({ error: 'Content-Type must be application/json' }, 415, corsHeaders);
+	}
+
+	const declaredLength = Number(req.headers.get('content-length'));
+	if (Number.isFinite(declaredLength) && declaredLength > MAX_USER_CARD_REQUEST_BYTES) {
+		return JSONResponse({ error: 'Request body is too large' }, 413, corsHeaders);
+	}
+
+	let requestData: unknown;
+	try {
+		const body = await req.text();
+		if (new TextEncoder().encode(body).byteLength > MAX_USER_CARD_REQUEST_BYTES) {
+			return JSONResponse({ error: 'Request body is too large' }, 413, corsHeaders);
+		}
+		requestData = JSON.parse(body);
+	} catch {
+		return JSONResponse({ error: 'Request body must contain valid JSON' }, 400, corsHeaders);
+	}
+
+	let cardData;
+	try {
+		cardData = parseUserCardData(requestData);
+	} catch (error) {
+		if (error instanceof UserCardInputError) {
+			return JSONResponse({ error: error.message }, 400, corsHeaders);
+		}
+		return JSONResponse({ error: 'Invalid user card data' }, 400, corsHeaders);
+	}
+
+	try {
+		const image = await renderUserCard(cardData, env.BLOG_BROWSER);
+		const headers = new Headers(image.headers);
+		for (const [name, value] of Object.entries(corsHeaders)) {
+			headers.set(name, value);
+		}
+		return new Response(image.body, { status: image.status, headers });
+	} catch (error) {
+		console.error('Failed to render user card', error);
+		return JSONResponse({ error: 'Failed to render user card' }, 502, corsHeaders);
+	}
 });
 
 // 404 for everything else
