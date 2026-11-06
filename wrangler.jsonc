@@ -22,7 +22,8 @@
 		"SITE_HOST": "blog.n4o.xyz"
 	},
 	"browser": {
-		"binding": "BLOG_BROWSER"
+		"binding": "BLOG_BROWSER",
+		"remote": true
 	}
 	/**
 	 * Smart Placement
